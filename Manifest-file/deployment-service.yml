@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: tetris
-        image: avian19/tetrisv1:latest
+        image: 540979843391.dkr.ecr.us-east-1.amazonaws.com/dockerimages:37 avian19/tetrisv1:latest
         ports:
         - containerPort: 3000
 ---
