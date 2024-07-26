@@ -1,0 +1,124 @@
+pipeline {
+    agent any 
+    tools {
+        jdk 'jdk'
+        nodejs 'nodejs'
+    }
+    environment  {
+        SCANNER_HOME=tool 'sonar-server'
+        AWS_REGION = 'us-east-1'
+        ECR_REPO = 'yourreponame'
+        AWS_ACCOUNT_ID = 'youraccountid'
+    }
+    stages {
+        stage('Cleaning Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Checkout from Git') {
+            steps {
+                git branch: 'master', url: 'https://github.com/hemanthsurapu/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git'
+            }
+        }
+        stage('Sonarqube Analysis') {
+            steps {
+                dir('Tetris-V1') {
+                    withSonarQubeEnv('SonarQube') {
+                        sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=TetrisVersion1.0 \
+                        -Dsonar.projectKey=TetrisVersion1.0 '''
+                    }
+                }
+            }
+        }
+        stage('Quality Check') {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token' 
+                }
+            }
+        }
+        stage('Installing Dependencies') {
+            steps {
+                dir('Tetris-V1') {
+                    sh 'npm install'
+                }
+            }
+        }
+        stage('OWASP Dependency-Check Scan') {
+            steps {
+                dir('Tetris-V1') {
+                    dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                }
+            }
+        }
+        stage('Trivy File Scan') {
+            steps {
+                dir('Tetris-V1') {
+                    sh 'trivy fs . > trivyfs.txt'
+                }
+            }
+        }
+        stage('Build, Login, and Push Docker Image') {
+            steps {
+                script {
+                    dir('Tetris-V1') { // Ensure Dockerfile is in Tetris-V1 directory
+        
+                        // Clean up Docker environment
+                        sh 'docker system prune -f'
+                        sh 'docker container prune -f'
+        
+                        // Build Docker image
+                        sh 'docker build -t tetrisv1 .'
+        
+                        // Log in to ECR
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                            sh '''
+                                aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                            '''
+                        }
+        
+                        // Tag and push Docker image to ECR
+                        sh '''
+                            docker tag tetrisv1 ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${BUILD_NUMBER}
+                            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${BUILD_NUMBER}
+                        '''
+                    }
+                }
+            }
+        }
+        stage("TRIVY Image Scan") {
+            steps {
+                sh 'trivy image ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${BUILD_NUMBER} > trivyimage.txt' 
+            }
+        }
+        stage('Checkout Code') {
+            steps {
+                git branch: 'master', url: 'https://github.com/hemanthsurapu/End-to-End-Kubernetes-DevSecOps-Tetris-Project.git'
+            }
+        }
+        stage('Update Deployment file') {
+            environment {
+                GIT_REPO_NAME = "End-to-End-Kubernetes-DevSecOps-Tetris-Project"
+                GIT_USER_NAME = "hemanthsurapu"
+            }
+            steps {
+                dir('Manifest-file') {
+                    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                        sh '''
+                            git config user.email "hemanthsurapu@gmail.com"
+                            git config user.name "hemanthsurapu"
+                            BUILD_NUMBER=${BUILD_NUMBER}
+                            echo $BUILD_NUMBER
+                            sed -i "s|image:.*|image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:${BUILD_NUMBER}|" deployment-service.yml
+                            git add deployment-service.yml
+                            git commit -m "Update deployment Image to version \${BUILD_NUMBER}"
+                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:master
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}
