@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: tetris
-        image: 540979843391.dkr.ecr.us-east-1.amazonaws.com/dockerimages:38
+        image: 540979843391.dkr.ecr.us-east-1.amazonaws.com/dockerimage:9
         ports:
         - containerPort: 3000
 ---
