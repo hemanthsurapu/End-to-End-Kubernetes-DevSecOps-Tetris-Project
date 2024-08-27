@@ -1,0 +1,152 @@
+tetris project -- infra + appilication deployment + versions of apps deployment
+
+
+
+infrastructure:
+
+A. create iam user with "admin acess" -- we use these access key secret key for future use 
+
+B.terraform  --- install terraform give create ec2 -- adminrole and give it to ec2-1.
+
+C. using terraform agent -- create a ec2 - jenkins agent  -- make sure you add userdata of java,jenkins,docker,sonarqube, trivy,kubectl,aws cli .
+
+
+steps:
+1.after creating a terraform agent --  install terraform on it. clone the terraform code which contains USERDATA of required tool configuration in it and apply. [in user data we can even run jenkins as a container if we need or else we can install directly.]
+
+--> a jenkins agent with docker sonarqube,trivy,kubectl, awscli will be created. make sure u create s3 in if you are using remote-backend.
+
+2. connect jenkins agent and verify whether all are installed.
+
+jenkins --version
+docker --version
+docker ps
+terraform --version
+kubectl version
+aws --version
+trivy --version
+
+3. set up jenkins console.
+
+4. add pluggins in manage jenkins -- AWS Credentials , Pipeline: AWS Steps
+###################################################################################################################################
+Use case of above pliggins:
+puggin - AWS Credentials :
+                AWS Access Key and Secret Key Storage: Securely store AWS access keys and secret keys in Jenkins' credentials store.
+				Credentials Binding: Easily bind AWS credentials to Jenkins jobs using the Credentials Binding plugin.
+				Credential Types: Supports different types of AWS credentials, such as access keys, secret keys, and session tokens.
+				
+	we should add credentials in credentials section in manage jenkins , the aws credentials section will only pop-up only if we install 
+	aws-credentials pluggin.
+				
+we can call the above credentials in pipeline in the form of :
+
+'''''''
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']]) {
+    // Your AWS-related steps here
+}
+   '''''''''
+
+pluggin -- pipeline:AWS steps --
+			Purpose:
+				The Pipeline: AWS Steps plugin provides Jenkins Pipeline steps for interacting with AWS services. It simplifies the integration of AWS operations within Jenkins pipelines by providing native steps to perform various AWS actions.
+
+			Key Features:
+				AWS CLI Commands: Run AWS CLI commands directly from Jenkins Pipeline scripts.
+				S3 Operations: Upload, download, and manage objects in S3 buckets.
+				EC2 Operations: Start, stop, and manage EC2 instances.
+				ECR Operations: Interact with Elastic Container Registry (ECR).
+				CloudFormation Operations: Deploy and manage CloudFormation stacks.
+				
+#######################################################################################################################################
+5. create a infrastructure pipeline where we deploy eks .. note: the jenkins file of infrastructure pipeline which contains all the parameters and best practices.
+
+#########################################################################################################################
+--> here in the pipleine we have used choice parameter . to select between the actions for apply and destroy.
+
+6.configure sonarqube -- 
+7. install the below pluggins:
+
+	Docker
+	Docker Commons
+	Docker Pipeline
+	Docker API
+	docker-build-step
+	Eclipse Temurin installer
+	NodeJS
+	OWASP Dependency-Check
+	SonarQube Scanner
+################################################################################################################################
+usage:
+
+Docker:
+Purpose: Enables Jenkins to build and run Docker containers.
+Usage: Used to automate the process of building, testing, and deploying applications inside Docker containers. It integrates Docker commands and functionalities directly into Jenkins pipelines.
+
+Docker Commons:
+Purpose: Provides common Docker functionalities that can be shared between different Jenkins plugins.
+Usage: Helps manage Docker images, containers, and credentials in a more centralized and consistent way across various Jenkins plugins.
+
+Docker Pipeline:
+Purpose: Adds Docker-specific functionality to Jenkins Pipeline.
+Usage: Allows the use of Docker containers as build agents, as well as building, running, and publishing Docker images directly within a Jenkins Pipeline. It provides a docker global variable to interact with Docker.
+
+Docker API:
+Purpose: Provides an API for interacting with Docker.
+Usage: Enables other Jenkins plugins and scripts to interact with Docker Daemon directly via API calls. This is essential for advanced Docker operations that are not covered by other Docker plugins.
+
+docker-build-step:
+Purpose: Adds Docker build steps to freestyle jobs.
+Usage: Allows Docker commands to be executed as part of Jenkins freestyle projects, enabling Docker build, run, and stop commands within build steps of non-pipeline jobs.
+
+Eclipse Temurin installer:
+Purpose: Installs and configures the Eclipse Temurin JDK.
+Usage: Ensures that the correct version of the Eclipse Temurin JDK is available for building Java projects. This plugin is particularly useful for ensuring consistency in Java environments across different build agents.
+
+NodeJS:
+Purpose: Provides Node.js and npm installation and configuration.
+Usage: Enables the use of Node.js and npm in Jenkins pipelines and jobs, facilitating the building, testing, and deployment of Node.js applications. It ensures the correct version of Node.js is used consistently across all builds.
+
+OWASP Dependency-Check:
+Purpose: Integrates the OWASP Dependency-Check tool into Jenkins.
+Usage: Scans project dependencies for known vulnerabilities. This plugin is essential for maintaining security by identifying and reporting vulnerable libraries and frameworks used in your projects.
+
+SonarQube Scanner:
+Purpose: Integrates SonarQube code quality analysis with Jenkins.
+Usage: Analyzes code for bugs, vulnerabilities, and code smells. It is a key tool for maintaining code quality and ensuring that best practices are followed. This plugin allows you to run SonarQube analysis as part of your Jenkins pipeline, and fail the build if the code quality doesn't meet the required standards.
+
+#########################################################################################################################	
+8. add tools in managejenkins -- 
+    jdk -- 17.0.8.7+7
+    nodejs --16.2.0
+	sonarqubescanner - 6.1.0.447
+	dependency check -- 10.0.3
+	docker -- docker latest
+	
+9. add sonarqube token to credentials-- secret text and sonarqube to tools in jenkins integrate it.
+   add github credentials ahving repo permissions in token.
+   
+10. deploy argo cd in k8. and do required configurations.
+
+11. create a newpipeline & run that appilication pipeline.
+
+####################################v1 is deployed ######################################## do the same thing to version 2
+
+
+   
+
+
+
+
+
+
+
+
+
+
+##########################################
+challanges:
+instance profile: created with different iam-role-name. deleted in awscli -- instance profile   aws list-instance-profiles & aws delete-instance-profiles.
+i have deployed version 2 of the app in the same namespace , i haven't updated service name , as  it is already in use ..
+
+argo cd is responding slowly so that i edited configmap and set data: timeout.reconciliation to 60s.
