@@ -3,7 +3,7 @@ terraform {
     bucket         = "statefile-threetier-proj-123"
     region         = "us-east-1"
     key            = "statefile-threetier-proj-123/EKS-TF/terraform.tfstate"
-    dynamodb_table = "terraform-locks"
+    dynamodb_table = "my-dynamodb-table"
     encrypt        = true
   }
   required_version = ">=0.13.0"
