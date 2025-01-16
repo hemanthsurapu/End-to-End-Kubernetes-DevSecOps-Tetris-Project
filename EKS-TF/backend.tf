@@ -1,8 +1,8 @@
 terraform {
   backend "s3" {
-    bucket         = "terrform-infra-bucket90"
+    bucket         = "statefile-threetier-proj-123"
     region         = "us-east-1"
-    key            = "End-to-End-Kubernetes-DevSecOps-Tetris-Project/EKS-TF/terraform.tfstate"
+    key            = "statefile-threetier-proj-123/EKS-TF/terraform.tfstate"
     dynamodb_table = "terraform-locks"
     encrypt        = true
   }
